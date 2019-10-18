@@ -23,13 +23,14 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
-    QBluetoothDeviceDiscoveryAgent *mDiscoveryAgent;
-    QBluetoothServiceDiscoveryAgent *mServiceDiscoveryAgent;
-    QBluetoothSocket *mSocket;
+    QBluetoothDeviceDiscoveryAgent *mDiscoveryAgent = nullptr;
+    QBluetoothServiceDiscoveryAgent *mServiceDiscoveryAgent = nullptr;
+    QBluetoothSocket *mSocket = nullptr;
 
 public slots:
     void addDevice(QBluetoothDeviceInfo info);
     void addService(QBluetoothServiceInfo info);
+    void addServiceError(QBluetoothDeviceDiscoveryAgent::Error);
     void addServiceDone();
     void socketRead();
     void socketConnected();
@@ -39,7 +40,7 @@ public slots:
 private slots:
     void on_servicesPushButton_clicked();
 
-    void on_pushButton_clicked();
+    void on_connectPushButton_clicked();
 
 private:
     Ui::MainWindow *ui;

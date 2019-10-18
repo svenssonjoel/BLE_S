@@ -26,7 +26,7 @@ int main(int argc, char **argv) {
   int max_rsp = 255; 
   int num_rsp;
   int dev_id, sock;
-  int flags = 0; //IREQ_CACHE_FLUSH;
+  int flags = IREQ_CACHE_FLUSH;
   int i, j, k;
   char addr[19] = {0};
   char name[248] = {0};

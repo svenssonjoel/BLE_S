@@ -41,6 +41,11 @@ void MainWindow::addDevice(QBluetoothDeviceInfo info)
 
 void MainWindow::addService(QBluetoothServiceInfo info)
 {
+    QListWidgetItem *it = new QListWidgetItem();
+
+    QString addruuid = QString("%1;%2").arg(info.device().address().toString()).arg(info.serviceUuid().toString());
+
+    it->setData(Qt::UserRole, QVariant::fromValue(info));
     ui->servicesListWidget->addItem(info.serviceName());
 }
 
@@ -49,26 +54,44 @@ void MainWindow::addServiceDone()
     ui->servicesPushButton->setEnabled(false);
 }
 
+void MainWindow::socketRead()
+{
+    char buffer[1024];
+    qint64 len;
+
+    while (mSocket->bytesAvailable()) {
+        len = mSocket->read(buffer, 1024);
+        qDebug() << QString(buffer);
+    }
+}
+
+void MainWindow::socketConnected()
+{
+    qDebug() << "socket connect";
+}
+
+void MainWindow::socketDisconnected()
+{
+    qDebug() << "socket disconnect";
+}
+
+void MainWindow::socketError()
+{
+    qDebug() << "socket error";
+}
+
 
 void MainWindow::on_servicesPushButton_clicked()
 {
     ui->servicesPushButton->setEnabled(false);
     ui->servicesListWidget->clear();
 
-    qDebug() << "Looking for services";
-
     QListWidgetItem *it = ui->devicesListWidget->currentItem();
     if (!it) return;
     qDebug() << "data: " << it->data(Qt::UserRole).toString();
     QStringList addrname = it->data(Qt::UserRole).toString().split(';');
 
-    qDebug() << addrname.at(0);
-    qDebug() << addrname.at(1);
-
-
     QBluetoothAddress addr(addrname.at(0));
-
-    qDebug() << "ble addr: " << addr.toString();
 
     mServiceDiscoveryAgent = new QBluetoothServiceDiscoveryAgent();
     mServiceDiscoveryAgent->setRemoteAddress(addr);
@@ -83,4 +106,39 @@ void MainWindow::on_servicesPushButton_clicked()
             this, SLOT(addServiceDone()));
 
     mServiceDiscoveryAgent->start();
+}
+
+void MainWindow::on_pushButton_clicked()
+{
+    QBluetoothServiceInfo remoteService;
+
+    QListWidgetItem *it = ui->servicesListWidget->currentItem();
+
+    QStringList addruuid=  it->data(Qt::UserRole).toString().split(';');
+
+    qDebug () << addruuid.at(0);
+    qDebug () << addruuid.at(1);
+
+    //QBluetoothAddress addr = QBluetoothAddress(addruuid.at(0));
+    //QBluetoothDeviceInfo di(addr);
+
+    //remoteService.setDevice(di);
+    //remoteService.setServiceUuid();
+
+
+    if (mSocket)
+        return;
+
+    // Connect to service
+    mSocket = new QBluetoothSocket(QBluetoothServiceInfo::RfcommProtocol);
+    qDebug() << "Create socket";
+    mSocket->connectToService(remoteService);
+    qDebug() << "ConnectToService done";
+
+
+
+    connect(mSocket, SIGNAL(readyRead), this, SLOT(socketRead));
+    connect(mSocket, SIGNAL(connected), this, SLOT(socketConnected));
+    connect(mSocket, SIGNAL(disconnected), this, SLOT(socketDisconnected));
+    connect(mSocket, SIGNAL(error), this, SLOT(socketError));
 }

@@ -9,6 +9,7 @@
 #include <qbluetoothserviceinfo.h>
 #include <qbluetoothlocaldevice.h>
 #include <qbluetoothuuid.h>
+#include <qbluetoothsocket.h>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -24,13 +25,21 @@ public:
 
     QBluetoothDeviceDiscoveryAgent *mDiscoveryAgent;
     QBluetoothServiceDiscoveryAgent *mServiceDiscoveryAgent;
+    QBluetoothSocket *mSocket;
 
 public slots:
     void addDevice(QBluetoothDeviceInfo info);
     void addService(QBluetoothServiceInfo info);
     void addServiceDone();
+    void socketRead();
+    void socketConnected();
+    void socketDisconnected();
+    void socketError();
+
 private slots:
     void on_servicesPushButton_clicked();
+
+    void on_pushButton_clicked();
 
 private:
     Ui::MainWindow *ui;

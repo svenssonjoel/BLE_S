@@ -329,7 +329,7 @@ void main(void)
 		return;
 	}
 
-	bt_set_name("NRF52-0101");
+	bt_set_name("NRF52-2121");
 	bt_conn_cb_register(&conn_callbacks);
 	bt_conn_auth_cb_register(&auth_cb_display);
 

@@ -39,10 +39,11 @@ MainWindow::~MainWindow()
 
 void MainWindow::addDevice(QBluetoothDeviceInfo info)
 {
-
     QString name = info.name();
     QString addr = info.address().toString();
-    if (info.name() != QString("NRF52-0101")) {
+
+    if (!(info.name() == QString("NRF52-0101") ||
+          info.name() == QString("NRF52-2121"))) {
         name = QString("[Hidden]");
         addr = QString("[Hidden]");
     }

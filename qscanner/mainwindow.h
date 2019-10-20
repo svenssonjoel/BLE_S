@@ -10,6 +10,10 @@
 #include <qbluetoothlocaldevice.h>
 #include <qbluetoothuuid.h>
 #include <qbluetoothsocket.h>
+#include <qlowenergycontroller.h>
+#include <qlowenergyservice.h>
+#include <qlowenergycharacteristic.h>
+#include <qlowenergycharacteristicdata.h>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -23,9 +27,7 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
-    QBluetoothDeviceDiscoveryAgent *mDiscoveryAgent = nullptr;
-    QBluetoothServiceDiscoveryAgent *mServiceDiscoveryAgent = nullptr;
-    QBluetoothSocket *mSocket = nullptr;
+
 
 public slots:
     void addDevice(QBluetoothDeviceInfo info);
@@ -36,13 +38,36 @@ public slots:
     void socketConnected();
     void socketDisconnected();
     void socketError();
+    void bleServiceDiscovered(const QBluetoothUuid &gatt);
+    void bleServiceDiscoveryFinished();
+    void bleServiceStateChanged(QLowEnergyService::ServiceState);
+    void bleServiceCharacteristic(const QLowEnergyCharacteristic &info,
+                                  const QByteArray &value);
+    void bleServiceCharacteristicRead(const QLowEnergyCharacteristic &info,
+                                      const QByteArray &value);
 
 private slots:
     void on_servicesPushButton_clicked();
-
     void on_connectPushButton_clicked();
+    void on_bleConnectPushButton_clicked();
+    void on_bleDisconnectPushButton_clicked();
+
+    void on_bleServiceConnectpushButton_clicked();
+
+    void on_bleCharacteristicReadPushButton_clicked();
+
+    void on_bleCharacteristicWritePushButton_clicked();
 
 private:
     Ui::MainWindow *ui;
+
+    QBluetoothDeviceDiscoveryAgent *mDiscoveryAgent = nullptr;
+    QBluetoothServiceDiscoveryAgent *mServiceDiscoveryAgent = nullptr;
+    QBluetoothSocket *mSocket = nullptr;
+
+    QLowEnergyController *mBLEControl = nullptr;
+    QLowEnergyService    *mBLEService = nullptr;
+
+
 };
 #endif // MAINWINDOW_H

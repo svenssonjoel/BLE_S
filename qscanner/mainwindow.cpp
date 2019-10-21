@@ -18,6 +18,7 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    this->setWindowTitle("BLE-TOOL");
 
    //QBluetoothLocalDevice localDevice;
    //QBluetoothAddress adapterAddress = localDevice.address();
@@ -41,12 +42,13 @@ void MainWindow::addDevice(QBluetoothDeviceInfo info)
 {
     QString name = info.name();
     QString addr = info.address().toString();
-
+/*
     if (!(info.name() == QString("NRF52-0101") ||
           info.name() == QString("NRF52-2121"))) {
         name = QString("[Hidden]");
         addr = QString("[Hidden]");
     }
+    */
 
     QString str = QString("%1 %2").arg(addr).arg(name);
 

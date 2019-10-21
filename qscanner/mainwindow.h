@@ -51,11 +51,8 @@ private slots:
     void on_connectPushButton_clicked();
     void on_bleConnectPushButton_clicked();
     void on_bleDisconnectPushButton_clicked();
-
     void on_bleServiceConnectpushButton_clicked();
-
     void on_bleCharacteristicReadPushButton_clicked();
-
     void on_bleCharacteristicWritePushButton_clicked();
 
 private:

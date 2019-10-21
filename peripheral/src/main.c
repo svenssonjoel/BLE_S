@@ -26,6 +26,10 @@
 
 #include "cts.h"
 
+#include <device.h>
+#include <gpio.h>
+
+
 /* Custom Service Variables */
 static struct bt_uuid_128 vnd_uuid = BT_UUID_INIT_128(
 	0xf0, 0xde, 0xbc, 0x9a, 0x78, 0x56, 0x34, 0x12,
@@ -322,13 +326,40 @@ static void hrs_notify(void)
 void main(void)
 {
 	int err;
+	struct device* port0 = device_get_binding("GPIO_0");
+
+	/* Set LED pin as output */
+	gpio_pin_configure(port0, 20, GPIO_DIR_OUT);
+	gpio_pin_configure(port0, 21, GPIO_DIR_OUT);
+
+
+/*
+
+
+	while (1) {
+		printk("hej\n\r");
+		k_sleep(MSEC_PER_SEC);
+	}
+*/
+
 
 	err = bt_enable(bt_ready);
-	if (err) {
-		printk("Bluetooth init failed (err %d)\n", err);
-		return;
-	}
 
+/*
+	while (1) {
+		// flash  LED
+		gpio_pin_write(port0, 20, 0);
+		gpio_pin_write(port0, 21, 1);
+		k_sleep(500);
+		gpio_pin_write(port0, 20, 1);
+		gpio_pin_write(port0, 21, 0);
+		k_sleep(500);
+
+		//printk("Hello World! %s\r\n", CONFIG_BOARD);
+
+		k_sleep(2000);
+	}
+*/
 	bt_set_name("NRF52-2121");
 	bt_conn_cb_register(&conn_callbacks);
 	bt_conn_auth_cb_register(&auth_cb_display);

@@ -13,6 +13,13 @@ typedef enum {
     CH_HEX
 } ch_type;
 
+typedef enum {
+    DEVICE_ADDRESS = 0,
+    DEVICE_NAME,
+    DEVICE_CORE_CONF,
+    DEVICE_RSSI
+} table_column;
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -27,9 +34,27 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(mDiscoveryAgent, SIGNAL(deviceDiscovered(QBluetoothDeviceInfo)),
             this, SLOT(addDevice(QBluetoothDeviceInfo)));
+    connect(mDiscoveryAgent, SIGNAL(deviceUpdated(const QBluetoothDeviceInfo, QBluetoothDeviceInfo::Fields)),
+            this, SLOT(deviceUpdated(const QBluetoothDeviceInfo, QBluetoothDeviceInfo::Fields)));
+    connect(mDiscoveryAgent, SIGNAL(finished()),
+            this, SLOT(deviceDiscoveryFinished()));
+    connect(mDiscoveryAgent, SIGNAL(error(QBluetoothDeviceDiscoveryAgent::Error)),
+            this, SLOT(deviceDiscoveryError(QBluetoothDeviceDiscoveryAgent::Error)));
+    connect(mDiscoveryAgent, SIGNAL(canceled()),
+            this, SLOT(deviceDiscoveryCanceled()));
+
+
+    ui->devicesTableWidget->setColumnCount(4);
+    //ui->devicesTableWidget->setRowCount(1);
+    QStringList headerLabels;
+    headerLabels << "Address" << "Name" << "CoreConf" << "Signal" ;
+    ui->devicesTableWidget->setHorizontalHeaderLabels(headerLabels);
+
+    ui->devicesTableWidget->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    ui->devicesTableWidget->resizeColumnsToContents();
 
     mDiscoveryAgent->start();
-
+    ui->scanningIndicatorLabel->setText("Scanning");
 }
 
 MainWindow::~MainWindow()
@@ -50,31 +75,110 @@ void MainWindow::addDevice(QBluetoothDeviceInfo info)
     }
     */
 
-    QString str = QString("%1 %2").arg(addr).arg(name);
+    QString str0 = addr;
+    QString str1 = name;
 
     QBluetoothDeviceInfo::CoreConfigurations cconf = info.coreConfigurations();
 
-    str.append(" [");
+    QString str2 = "";
 
     if (cconf.testFlag(QBluetoothDeviceInfo::LowEnergyCoreConfiguration)) {
-        str.append(" LowEnergy");
+        str2.append(" LowEnergy");
     }
     if (cconf.testFlag(QBluetoothDeviceInfo::UnknownCoreConfiguration  )) {
-        str.append(" Unknown");
+        str2.append(" Unknown");
     }
     if (cconf.testFlag(QBluetoothDeviceInfo::BaseRateCoreConfiguration  )) {
-        str.append(" BaseRate");
+        str2.append(" BaseRate");
     }
     if (cconf.testFlag(QBluetoothDeviceInfo::BaseRateAndLowEnergyCoreConfiguration  )) {
-        str.append(" BaseRate_&_LowEnergy");
+        str2.append(" BaseRate_&_LowEnergy");
     }
-    str.append(" ]");
 
-    QListWidgetItem *it = new QListWidgetItem();
-    it->setData(Qt::UserRole, QVariant::fromValue(info));
-    it->setText(str);
+    QString str3 = QString::number(info.rssi(), 10);
 
-    ui->devicesListWidget->addItem(it);
+    //QListWidgetItem *it = new QListWidgetItem();
+    //it->setData(Qt::UserRole, QVariant::fromValue(info));
+    //it->setText(str);
+
+    //ui->devicesListWidget->addItem(it);
+    QTableWidgetItem *it0 = new QTableWidgetItem();
+    it0->setData(Qt::UserRole,QVariant::fromValue(info));
+    it0->setText(str0);
+
+    QTableWidgetItem *it1 = new QTableWidgetItem();
+    it1->setText(str1);
+
+    QTableWidgetItem *it2 = new QTableWidgetItem();
+    it2->setText(str2);
+
+    QTableWidgetItem *it3 = new QTableWidgetItem();
+    it3->setText(str3);
+
+
+    int row = 0;
+    bool found = false;
+
+    for (row = 0; row < ui->devicesTableWidget->rowCount(); row ++) {
+        if (ui->devicesTableWidget->item(row,0)->text() == str0) {
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        int row = ui->devicesTableWidget->rowCount();
+        ui->devicesTableWidget->setRowCount(row + 1);
+    }
+    ui->devicesTableWidget->setItem(row, DEVICE_ADDRESS, it0);
+    ui->devicesTableWidget->setItem(row, DEVICE_NAME, it1);
+    ui->devicesTableWidget->setItem(row, DEVICE_CORE_CONF, it2);
+    ui->devicesTableWidget->setItem(row, DEVICE_RSSI, it3);
+
+}
+
+void MainWindow::deviceUpdated(const QBluetoothDeviceInfo info, QBluetoothDeviceInfo::Fields fields)
+{
+    QString addrStr = info.address().toString();
+
+    int row = 0;
+    bool found = false;
+
+    for (row = 0; row < ui->devicesTableWidget->rowCount(); row ++) {
+        if (ui->devicesTableWidget->item(row,0)->text() == addrStr) {
+            found = true;
+            break;
+        }
+    }
+
+    if (found && fields & 1) {
+        QTableWidgetItem *it = new QTableWidgetItem();
+        it->setText(QString::number(info.rssi(),10));
+        ui->devicesTableWidget->setItem(row, DEVICE_RSSI, it);
+    }
+}
+
+void MainWindow::deviceDiscoveryFinished()
+{
+    ui->scanningIndicatorLabel->setText("Resting");
+    qDebug() << "Device discovery done!";
+
+    if (ui->scanPeriodicallyCheckBox->isChecked()) {
+        QTimer::singleShot(25000, [this]{
+            ui->scanningIndicatorLabel->setText("Scanning");
+            mDiscoveryAgent->start();});
+    }
+
+}
+
+void MainWindow::deviceDiscoveryError(QBluetoothDeviceDiscoveryAgent::Error error)
+{
+    qDebug() << "Device discovery error: " << error;
+}
+
+void MainWindow::deviceDiscoveryCanceled()
+{
+    qDebug() << "Device discovery canceled!";
 }
 
 void MainWindow::addService(QBluetoothServiceInfo info)
@@ -219,7 +323,8 @@ void MainWindow::on_servicesPushButton_clicked()
     ui->servicesPushButton->setEnabled(false);
     ui->servicesListWidget->clear();
 
-    QListWidgetItem *it = ui->devicesListWidget->currentItem();
+    //QListWidgetItem *it = ui->devicesListWidget->currentItem();
+    QTableWidgetItem *it = ui->devicesTableWidget->currentItem();
 
     QBluetoothDeviceInfo info = it->data(Qt::UserRole).value<QBluetoothDeviceInfo>();
 
@@ -287,8 +392,16 @@ void MainWindow::on_connectPushButton_clicked()
 
 void MainWindow::on_bleConnectPushButton_clicked()
 {
-    QBluetoothDeviceInfo dev = ui->devicesListWidget->currentItem()->data(Qt::UserRole).value<QBluetoothDeviceInfo>();
+    //QBluetoothDeviceInfo dev = ui->devicesListWidget->currentItem()->data(Qt::UserRole).value<QBluetoothDeviceInfo>();
+    int row = ui->devicesTableWidget->currentRow();
+    QTableWidgetItem *it = ui->devicesTableWidget->item(row, 0);
 
+    if (!it) {
+        qDebug() << "No device selected!";
+        return;
+    }
+
+    QBluetoothDeviceInfo dev = it->data(Qt::UserRole).value<QBluetoothDeviceInfo>();
     mBLEControl = QLowEnergyController::createCentral(dev, this);
 
     connect(mBLEControl, &QLowEnergyController::serviceDiscovered,
@@ -357,4 +470,13 @@ void MainWindow::on_bleCharacteristicReadPushButton_clicked()
 void MainWindow::on_bleCharacteristicWritePushButton_clicked()
 {
 
+}
+
+void MainWindow::on_scanPeriodicallyCheckBox_clicked(bool checked)
+{
+    if (!mDiscoveryAgent->isActive() && checked) {
+        QTimer::singleShot(1000, [this]{
+            ui->scanningIndicatorLabel->setText("Scanning");
+            mDiscoveryAgent->start();});
+    }
 }

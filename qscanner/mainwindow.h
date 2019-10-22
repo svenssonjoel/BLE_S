@@ -15,6 +15,8 @@
 #include <qlowenergycharacteristic.h>
 #include <qlowenergycharacteristicdata.h>
 
+#include <QTimer>
+
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
@@ -31,6 +33,10 @@ public:
 
 public slots:
     void addDevice(QBluetoothDeviceInfo info);
+    void deviceUpdated(const QBluetoothDeviceInfo info, QBluetoothDeviceInfo::Fields fields);
+    void deviceDiscoveryFinished();
+    void deviceDiscoveryError(QBluetoothDeviceDiscoveryAgent::Error error);
+    void deviceDiscoveryCanceled();
     void addService(QBluetoothServiceInfo info);
     void addServiceError(QBluetoothDeviceDiscoveryAgent::Error);
     void addServiceDone();
@@ -54,6 +60,9 @@ private slots:
     void on_bleServiceConnectpushButton_clicked();
     void on_bleCharacteristicReadPushButton_clicked();
     void on_bleCharacteristicWritePushButton_clicked();
+
+
+    void on_scanPeriodicallyCheckBox_clicked(bool checked);
 
 private:
     Ui::MainWindow *ui;

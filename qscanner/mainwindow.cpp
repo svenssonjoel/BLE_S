@@ -247,16 +247,56 @@ void MainWindow::socketError()
 
 void MainWindow::bleServiceDiscovered(const QBluetoothUuid &gatt)
 {
-    QListWidgetItem *it = new QListWidgetItem();
+    //QListWidgetItem *it = new QListWidgetItem();
+    QTreeWidgetItem *it = new QTreeWidgetItem();
 
-    it->setData(Qt::UserRole, QVariant::fromValue(gatt));
+    QLowEnergyService *bleService = mBLEControl->createServiceObject(gatt);
 
-    QString str = gatt.toString();
+    if (bleService) {
+        connect(bleService, &QLowEnergyService::stateChanged,
+                this, [this, bleService, it] (QLowEnergyService::ServiceState state) {
+            qDebug() << "BLE Service state changed:" << state;
+            switch(state) {
+            case QLowEnergyService::InvalidService:
+                ui->bleCharacteristicsListWidget->addItem("Invalid Service");
+                break;
+            case QLowEnergyService::DiscoveryRequired:
+                break;
+            case QLowEnergyService::DiscoveringServices:
+                break;
+            case QLowEnergyService::ServiceDiscovered:
+                for (auto c : bleService->characteristics()) {
+                    QTreeWidgetItem *child = new QTreeWidgetItem();
 
-    it->setText(str);
+                    child->setData(0,Qt::UserRole, QVariant::fromValue(c));
+                    child->setText(0,c.name());
+                    it->addChild(child);
+
+                }
+                break;
+            case QLowEnergyService::LocalService:
+                ui->bleCharacteristicsListWidget->addItem("Local Service");
+                break;
+            }
+        });
+        connect(bleService, &QLowEnergyService::characteristicChanged,
+                this, &MainWindow::bleServiceCharacteristic);
+        connect(bleService, &QLowEnergyService::characteristicRead,
+                this, &MainWindow::bleServiceCharacteristicRead);
+        //mBLEService->characteristicChanged()
+        bleService->discoverDetails();
+    } else {
+        qDebug() << "Error connecting to BLE Service";
+    }
+
+    it->setData(0,Qt::UserRole, QVariant::fromValue(gatt));
+    it->setData(1,Qt::UserRole, QVariant::fromValue(bleService));
+    it->setText(0,gatt.toString());
+    //it->setText(str);
 
 
-    ui->bleServicesListWidget->addItem(it);
+    ui->bleServicesTreeWidget->addTopLevelItem(it);
+    //ui->bleServicesListWidget->addItem(it);
 
 }
 
@@ -268,6 +308,7 @@ void MainWindow::bleServiceDiscoveryFinished()
 void MainWindow::bleServiceStateChanged(QLowEnergyService::ServiceState state)
 {
     qDebug() << "BLE Service state changed:" << state;
+
 
     switch(state) {
     case QLowEnergyService::InvalidService:
@@ -438,45 +479,37 @@ void MainWindow::on_bleConnectPushButton_clicked()
 void MainWindow::on_bleDisconnectPushButton_clicked()
 {
     mBLEControl->disconnectFromDevice();
-}
 
-void MainWindow::on_bleServiceConnectpushButton_clicked()
-{
-    QListWidgetItem *it = ui->bleServicesListWidget->currentItem();
-
-    if (!it) return;
-
-    QBluetoothUuid gatt = it->data(Qt::UserRole).value<QBluetoothUuid>();
-
-    mBLEService = mBLEControl->createServiceObject(gatt);
-
-    if (mBLEService) {
-        connect(mBLEService, &QLowEnergyService::stateChanged,
-                this, &MainWindow::bleServiceStateChanged);
-        connect(mBLEService, &QLowEnergyService::characteristicChanged,
-                this, &MainWindow::bleServiceCharacteristic);
-        connect(mBLEService, &QLowEnergyService::characteristicRead,
-                this, &MainWindow::bleServiceCharacteristicRead);
-        //mBLEService->characteristicChanged()
-        mBLEService->discoverDetails();
-    } else {
-        qDebug() << "Error connecting to BLE Service";
-    }
-
-
+    //ui->bleServicesListWidget->clear();
+    ui->bleServicesTreeWidget->clear();
+    //ui->bleCharacteristicsListWidget->clear();
 }
 
 void MainWindow::on_bleCharacteristicReadPushButton_clicked()
 {
-    QListWidgetItem *it = ui->bleCharacteristicsListWidget->currentItem();
+    QTreeWidgetItem *it = ui->bleServicesTreeWidget->currentItem();
 
     if (!it) return;
 
-    QLowEnergyCharacteristic ch = it->data(Qt::UserRole).value<QLowEnergyCharacteristic>();
+    if (it->data(0, Qt::UserRole).canConvert<QLowEnergyCharacteristic>()) {
+        QLowEnergyCharacteristic ch = it->data(0,Qt::UserRole).value<QLowEnergyCharacteristic>();
+        qDebug() << "Should be ok to convert to characteristic";
 
-    if (mBLEService)
-        mBLEService->readCharacteristic(ch);
+        // the top-level parent holds the service
+        // TODO: it is not absolute guaranteed that top-level parent holds the service.
+        //       Needs a more robust way of finding the enclosing service.
+        QTreeWidgetItem *p = it->parent();
 
+        while (p->parent() != nullptr) {
+            p = p->parent();
+        }
+
+        if (p->data(1, Qt::UserRole).canConvert<QLowEnergyService*>()) {
+            QLowEnergyService *s = p->data(1, Qt::UserRole).value<QLowEnergyService*>();
+            qDebug() << "Should be ok to convert to a service..";
+            s->readCharacteristic(ch);
+        }
+    }
 }
 
 void MainWindow::on_bleCharacteristicWritePushButton_clicked()
@@ -548,4 +581,10 @@ void MainWindow::on_scriptDirBrowsePushButton_clicked()
     QString str = QFileDialog::getExistingDirectory(nullptr, ("Select Output Folder"), QDir::currentPath());
     if (!str.isEmpty())
         ui->scriptDirLineEdit->setText(str);
+}
+
+void MainWindow::on_bleServicesTreeWidget_currentItemChanged(QTreeWidgetItem *current, QTreeWidgetItem *previous)
+{
+    (void) previous;
+
 }

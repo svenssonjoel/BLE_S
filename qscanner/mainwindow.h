@@ -21,6 +21,7 @@
 #include <QScrollBar>
 #include <QDir>
 #include <QFileDialog>
+#include <QTreeWidgetItem>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -62,17 +63,14 @@ private slots:
     void on_connectPushButton_clicked();
     void on_bleConnectPushButton_clicked();
     void on_bleDisconnectPushButton_clicked();
-    void on_bleServiceConnectpushButton_clicked();
     void on_bleCharacteristicReadPushButton_clicked();
     void on_bleCharacteristicWritePushButton_clicked();
     void on_scanPeriodicallyCheckBox_clicked(bool checked);
     void on_ttyConnectPushButton_clicked();
-
     void on_NRF52SerialReadyRead();
-
     void on_consoleSendPushButton_clicked();
-
     void on_scriptDirBrowsePushButton_clicked();
+    void on_bleServicesTreeWidget_currentItemChanged(QTreeWidgetItem *current, QTreeWidgetItem *previous);
 
 private:
     Ui::MainWindow *ui;

@@ -121,7 +121,7 @@ void usb_printf(char *format, ...) {
 	va_start(arg, format);
 	int len;
 	static char print_buffer[4096];
-
+	
 	len = vsnprintf(print_buffer, 4096,format, arg);
 	va_end(arg);
 
@@ -132,8 +132,8 @@ void usb_printf(char *format, ...) {
 			ring_buf_put(&out_ringbuf,
 				         (print_buffer + num_written),
 				         (len - num_written));
-		uart_irq_tx_enable(dev);
 		irq_unlock(key);
+		uart_irq_tx_enable(dev);
 	}
 	k_mutex_unlock(&uart_io_mutex);
 }
@@ -338,7 +338,7 @@ void main(void)
 	usb_printf("Allocating input/output buffers\n\r");
 	size_t len = 1024;
 	char *str = malloc(1024);
-	char *outbuf = malloc(1024);
+	char *outbuf = malloc(4096);
 	int res = 0;
 
 	heap_state_t heap_state;
@@ -388,14 +388,14 @@ void main(void)
 		if (strncmp(str, ":info", 5) == 0) {
 			usb_printf("##(BLE_TOOL_NRF52_FW)#######################################\n\r");
 			usb_printf("Used cons cells: %lu \n\r", heap_size - heap_num_free());
-			usb_printf("ENV: "); simple_snprint(outbuf,1023, eval_cps_get_env()); usb_printf("%s \n\r", outbuf);
+			usb_printf("ENV: "); simple_snprint(outbuf,4095, eval_cps_get_env()); usb_printf("%s \n\r", outbuf);
 			heap_get_state(&heap_state);
 			usb_printf("GC counter: %lu\n\r", heap_state.gc_num);
 			usb_printf("Recovered: %lu\n\r", heap_state.gc_recovered);
 			usb_printf("Marked: %lu\n\r", heap_state.gc_marked);
 			usb_printf("Free cons cells: %lu\n\r", heap_num_free());
 			usb_printf("############################################################\n\r");
-			memset(outbuf,0, 1024);
+			memset(outbuf,0, 4096);
 		} else if (strncmp(str, ":quit", 5) == 0) {
 			break;
 		} else if (strncmp(str, ":notify", 7) == 0) {

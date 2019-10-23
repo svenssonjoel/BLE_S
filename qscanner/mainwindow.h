@@ -16,6 +16,9 @@
 #include <qlowenergycharacteristicdata.h>
 
 #include <QTimer>
+#include <QSerialPort>
+#include <QSerialPortInfo>
+#include <QScrollBar>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -60,9 +63,12 @@ private slots:
     void on_bleServiceConnectpushButton_clicked();
     void on_bleCharacteristicReadPushButton_clicked();
     void on_bleCharacteristicWritePushButton_clicked();
-
-
     void on_scanPeriodicallyCheckBox_clicked(bool checked);
+    void on_ttyConnectPushButton_clicked();
+
+    void on_NRF52SerialReadyRead();
+
+    void on_consoleSendPushButton_clicked();
 
 private:
     Ui::MainWindow *ui;
@@ -73,6 +79,8 @@ private:
 
     QLowEnergyController *mBLEControl = nullptr;
     QLowEnergyService    *mBLEService = nullptr;
+
+    QSerialPort *mNRF52SerialPort;
 
 
 };

@@ -55,6 +55,14 @@ MainWindow::MainWindow(QWidget *parent)
 
     mDiscoveryAgent->start();
     ui->scanningIndicatorLabel->setText("Scanning");
+
+    ui->consoleOutputTextEdit->setReadOnly(true);
+
+
+    mNRF52SerialPort = new QSerialPort(this);
+
+    connect(mNRF52SerialPort, &QSerialPort::readyRead,
+            this, &MainWindow::on_NRF52SerialReadyRead);
 }
 
 MainWindow::~MainWindow()
@@ -469,7 +477,7 @@ void MainWindow::on_bleCharacteristicReadPushButton_clicked()
 
 void MainWindow::on_bleCharacteristicWritePushButton_clicked()
 {
-
+    qDebug() << "not implemented";
 }
 
 void MainWindow::on_scanPeriodicallyCheckBox_clicked(bool checked)
@@ -478,5 +486,47 @@ void MainWindow::on_scanPeriodicallyCheckBox_clicked(bool checked)
         QTimer::singleShot(1000, [this]{
             ui->scanningIndicatorLabel->setText("Scanning");
             mDiscoveryAgent->start();});
+    }
+}
+
+void MainWindow::on_ttyConnectPushButton_clicked()
+{
+    QString s = ui->ttyLineEdit->text();
+
+    if (s.isNull() || s.isEmpty()) return;
+
+    mNRF52SerialPort->setPortName(s);
+    mNRF52SerialPort->setBaudRate(QSerialPort::Baud115200);
+    mNRF52SerialPort->setDataBits(QSerialPort::Data8);
+    mNRF52SerialPort->setParity(QSerialPort::NoParity);
+    mNRF52SerialPort->setStopBits(QSerialPort::OneStop);
+    mNRF52SerialPort->setFlowControl(QSerialPort::NoFlowControl);
+
+    if(mNRF52SerialPort->open(QIODevice::ReadWrite)) {
+        qDebug() << "NRF52 SERIAL: OK!";
+    } else {
+        qDebug() << "NRF52 SERIAL: ERROR!";
+    }
+
+}
+
+void MainWindow::on_NRF52SerialReadyRead()
+{
+    QByteArray data = mNRF52SerialPort->readAll();
+    QString str = QString(data);
+    ui->consoleOutputTextEdit->insertPlainText(str);
+    QScrollBar *sb = ui->consoleOutputTextEdit->verticalScrollBar();
+    sb->setValue(sb->maximum());
+}
+
+void MainWindow::on_consoleSendPushButton_clicked()
+{
+    if( mNRF52SerialPort->isOpen()) {
+
+        QString str = ui->consoleInputLineEdit->text();
+        ui->consoleInputLineEdit->clear();
+        str.append("\n");
+
+        mNRF52SerialPort->write(str.toLocal8Bit());
     }
 }

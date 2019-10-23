@@ -63,6 +63,10 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(mNRF52SerialPort, &QSerialPort::readyRead,
             this, &MainWindow::on_NRF52SerialReadyRead);
+
+    connect(ui->consoleInputLineEdit, &QLineEdit::returnPressed,
+            this, &MainWindow::on_consoleSendPushButton_clicked);
+
 }
 
 MainWindow::~MainWindow()
@@ -491,6 +495,9 @@ void MainWindow::on_scanPeriodicallyCheckBox_clicked(bool checked)
 
 void MainWindow::on_ttyConnectPushButton_clicked()
 {
+    if (mNRF52SerialPort->isOpen()) {
+        mNRF52SerialPort->close();
+    }
     QString s = ui->ttyLineEdit->text();
 
     if (s.isNull() || s.isEmpty()) return;
@@ -514,6 +521,11 @@ void MainWindow::on_NRF52SerialReadyRead()
 {
     QByteArray data = mNRF52SerialPort->readAll();
     QString str = QString(data);
+    //ui->consoleOutputTextEdit->setc
+    QTextCursor c = ui->consoleOutputTextEdit->textCursor();
+    c.movePosition(QTextCursor::End);
+    ui->consoleOutputTextEdit->setTextCursor(c);
+
     ui->consoleOutputTextEdit->insertPlainText(str);
     QScrollBar *sb = ui->consoleOutputTextEdit->verticalScrollBar();
     sb->setValue(sb->maximum());

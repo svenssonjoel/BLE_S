@@ -319,7 +319,7 @@
           </property>
           <widget class="QTabWidget" name="tabWidget_3">
            <property name="currentIndex">
-            <number>0</number>
+            <number>1</number>
            </property>
            <widget class="QWidget" name="tab_5">
             <attribute name="title">
@@ -356,19 +356,43 @@
             <attribute name="title">
              <string>Edit Script</string>
             </attribute>
-            <widget class="QLabel" name="label_8">
-             <property name="geometry">
-              <rect>
-               <x>170</x>
-               <y>220</y>
-               <width>67</width>
-               <height>17</height>
-              </rect>
-             </property>
-             <property name="text">
-              <string>TODO</string>
-             </property>
-            </widget>
+            <layout class="QGridLayout" name="gridLayout_11">
+             <item row="0" column="0">
+              <widget class="QPlainTextEdit" name="editScriptPlainTextEdit"/>
+             </item>
+             <item row="1" column="0">
+              <layout class="QHBoxLayout" name="horizontalLayout_2">
+               <item>
+                <widget class="QPushButton" name="scriptNewPushButton">
+                 <property name="text">
+                  <string>New</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QPushButton" name="scriptEditPushButton">
+                 <property name="text">
+                  <string>Edit</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QPushButton" name="scriptSavePushButton">
+                 <property name="text">
+                  <string>Save</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QPushButton" name="scriptSaveAsPushButton_3">
+                 <property name="text">
+                  <string>Save as</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+            </layout>
            </widget>
           </widget>
           <widget class="QWidget" name="">
@@ -427,19 +451,42 @@
        <attribute name="title">
         <string>Configuration</string>
        </attribute>
-       <widget class="QLabel" name="label_7">
-        <property name="geometry">
-         <rect>
-          <x>310</x>
-          <y>210</y>
-          <width>67</width>
-          <height>17</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>TODO</string>
-        </property>
-       </widget>
+       <layout class="QGridLayout" name="gridLayout_13">
+        <item row="0" column="0">
+         <layout class="QGridLayout" name="gridLayout_12">
+          <item row="0" column="2">
+           <widget class="QPushButton" name="scriptDirBrowsePushButton">
+            <property name="text">
+             <string>Browse</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QLineEdit" name="scriptDirLineEdit"/>
+          </item>
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_7">
+            <property name="text">
+             <string>Scripts Directory:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <spacer name="verticalSpacer_2">
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>20</width>
+              <height>40</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </item>
+       </layout>
       </widget>
      </widget>
     </item>

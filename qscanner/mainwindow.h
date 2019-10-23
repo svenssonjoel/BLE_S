@@ -19,6 +19,8 @@
 #include <QSerialPort>
 #include <QSerialPortInfo>
 #include <QScrollBar>
+#include <QDir>
+#include <QFileDialog>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -69,6 +71,8 @@ private slots:
     void on_NRF52SerialReadyRead();
 
     void on_consoleSendPushButton_clicked();
+
+    void on_scriptDirBrowsePushButton_clicked();
 
 private:
     Ui::MainWindow *ui;

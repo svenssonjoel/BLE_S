@@ -57,7 +57,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->scanningIndicatorLabel->setText("Scanning");
 
     ui->consoleOutputTextEdit->setReadOnly(true);
-
+    ui->consoleOutputTextEdit->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
 
     mNRF52SerialPort = new QSerialPort(this);
 
@@ -541,4 +541,11 @@ void MainWindow::on_consoleSendPushButton_clicked()
 
         mNRF52SerialPort->write(str.toLocal8Bit());
     }
+}
+
+void MainWindow::on_scriptDirBrowsePushButton_clicked()
+{
+    QString str = QFileDialog::getExistingDirectory(nullptr, ("Select Output Folder"), QDir::currentPath());
+    if (!str.isEmpty())
+        ui->scriptDirLineEdit->setText(str);
 }

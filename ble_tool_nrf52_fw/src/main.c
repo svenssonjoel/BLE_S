@@ -21,9 +21,15 @@
 #include <zephyr.h>
 #include <sys/ring_buffer.h>
 
-#include <logging/log.h>
-LOG_MODULE_REGISTER(cdc_acm_echo, LOG_LEVEL_INF);
+#include <settings/settings.h>
 
+#include <bluetooth/bluetooth.h>
+#include <bluetooth/hci.h>
+#include <bluetooth/conn.h>
+#include <bluetooth/uuid.h>
+#include <bluetooth/gatt.h>
+#include <bluetooth/services/bas.h>
+#include <bluetooth/services/hrs.h>
 
 #include "heap.h"
 #include "symrepr.h"
@@ -56,10 +62,10 @@ static void interrupt_handler(struct device *dev)
 
 			rb_len = ring_buf_put(&in_ringbuf, buffer, recv_len);
 			if (rb_len < recv_len) {
-				LOG_ERR("Drop %u bytes", recv_len - rb_len);
+                           //silently dropping bytes 
 			}
 
-			LOG_DBG("tty fifo -> ringbuf %d bytes", rb_len);
+
 		}
 
 		if (uart_irq_tx_ready(dev)) {
@@ -68,17 +74,14 @@ static void interrupt_handler(struct device *dev)
 
 			rb_len = ring_buf_get(&out_ringbuf, buffer, sizeof(buffer));
 			if (!rb_len) {
-				LOG_DBG("Ring buffer empty, disable TX IRQ");
 				uart_irq_tx_disable(dev);
 				continue;
 			}
 
 			send_len = uart_fifo_fill(dev, buffer, rb_len);
 			if (send_len < rb_len) {
-				LOG_ERR("Drop %d bytes", rb_len - send_len);
+                              //LOG_ERR("Drop %d bytes", rb_len - send_len);
 			}
-
-			LOG_DBG("ringbuf -> tty fifo %d bytes", send_len);
 		}
 	}
 }
@@ -117,9 +120,9 @@ void usb_printf(char *format, ...) {
 	va_list arg;
 	va_start(arg, format);
 	int len;
-	static char print_buffer[1025];
+	static char print_buffer[4096];
 
-	len = vsnprintf(print_buffer, 1024,format, arg);
+	len = vsnprintf(print_buffer, 4096,format, arg);
 	va_end(arg);
 
 	int num_written = 0;
@@ -170,24 +173,119 @@ int inputline(char *buffer, int size) {
   return 0; // Filled up buffer without reading a linebreak
 }
 
+static const struct bt_data ad[] = {
+	BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
+	BT_DATA_BYTES(BT_DATA_UUID16_ALL,
+		      0x0d, 0x18, 0x0f, 0x18, 0x05, 0x18),
+	BT_DATA_BYTES(BT_DATA_UUID128_ALL,
+		      0xf0, 0xde, 0xbc, 0x9a, 0x78, 0x56, 0x34, 0x12,
+		      0x78, 0x56, 0x34, 0x12, 0x78, 0x56, 0x34, 0x12),
+};
+
+static void connected(struct bt_conn *conn, u8_t err)
+{
+	if (err) {
+		usb_printf("Connection failed (err 0x%02x)\n\r", err);
+	} else {
+		usb_printf("Connected\n\r");
+	}
+}
+
+static void disconnected(struct bt_conn *conn, u8_t reason)
+{
+	usb_printf("Disconnected (reason 0x%02x)\n\r", reason);
+}
+
+static struct bt_conn_cb conn_callbacks = {
+	.connected = connected,
+	.disconnected = disconnected,
+};
+
+static void auth_passkey_display(struct bt_conn *conn, unsigned int passkey)
+{
+	char addr[BT_ADDR_LE_STR_LEN];
+
+	bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
+
+	printk("Passkey for %s: %06u\n", addr, passkey);
+}
+
+static void auth_cancel(struct bt_conn *conn)
+{
+	char addr[BT_ADDR_LE_STR_LEN];
+
+	bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
+
+	printk("Pairing cancelled: %s\n", addr);
+}
+static struct bt_conn_auth_cb auth_cb_display = {
+	.passkey_display = auth_passkey_display,
+	.passkey_entry = NULL,
+	.cancel = auth_cancel,
+};
+
+static void bt_ready(int err)
+{
+	if (err) {
+           usb_printf("Bluetooth init failed (err %d)\n", err);
+	   return;
+	}
+
+	usb_printf("Bluetooth initialized\n");
+
+	if (IS_ENABLED(CONFIG_SETTINGS)) {
+		settings_load();
+	}
+
+	err = bt_le_adv_start(BT_LE_ADV_CONN_NAME, ad, ARRAY_SIZE(ad), NULL, 0);
+	if (err) {
+		usb_printf("Advertising failed to start (err %d)\n", err);
+		return;
+	}
+
+	printk("Advertising successfully started\n");
+}
+
+static void bas_notify(void)
+{
+	u8_t battery_level = bt_gatt_bas_get_battery_level();
+
+	battery_level--;
+
+	if (!battery_level) {
+		battery_level = 100U;
+	}
+
+	bt_gatt_bas_set_battery_level(battery_level);
+}
 
 
+static VALUE bas_set_level(VALUE *args, int argn) 
+{
+  if (argn != 1) {
+    return enc_sym(symrepr_nil());
+  }
+  int bat_lvl = dec_i(args[0]);
+  
+  bt_gatt_bas_set_battery_level((u8_t)bat_lvl);
+  return enc_sym(symrepr_true());
+}
+
+ 
 void main(void)
 {
 
 	u32_t baudrate, dtr = 0U;
 	int ret;
+	int err;
 
 	dev = device_get_binding("CDC_ACM_0");
 	if (!dev) {
-		LOG_ERR("CDC ACM device not found");
 		return;
 	}
 
 	ring_buf_init(&in_ringbuf, sizeof(in_ring_buffer), in_ring_buffer);
 	ring_buf_init(&out_ringbuf, sizeof(out_ring_buffer), out_ring_buffer);
-
-	LOG_INF("Wait for DTR");
 
 	while (true) {
 		uart_line_ctrl_get(dev, LINE_CTRL_DTR, &dtr);
@@ -199,17 +297,15 @@ void main(void)
 		}
 	}
 
-	LOG_INF("DTR set");
-
 	/* They are optional, we use them to test the interrupt endpoint */
 	ret = uart_line_ctrl_set(dev, LINE_CTRL_DCD, 1);
 	if (ret) {
-		LOG_WRN("Failed to set DCD, ret code %d", ret);
+	  //LOG_WRN("Failed to set DCD, ret code %d", ret);
 	}
 
 	ret = uart_line_ctrl_set(dev, LINE_CTRL_DSR, 1);
 	if (ret) {
-		LOG_WRN("Failed to set DSR, ret code %d", ret);
+	  //LOG_WRN("Failed to set DSR, ret code %d", ret);
 	}
 
 	/* Wait 1 sec for the host to do all settings */
@@ -217,9 +313,9 @@ void main(void)
 
 	ret = uart_line_ctrl_get(dev, LINE_CTRL_BAUD_RATE, &baudrate);
 	if (ret) {
-		LOG_WRN("Failed to get baudrate, ret code %d", ret);
+	  //LOG_WRN("Failed to get baudrate, ret code %d", ret);
 	} else {
-		LOG_INF("Baudrate detected: %d", baudrate);
+	  //LOG_INF("Baudrate detected: %d", baudrate);
 	}
 
 	uart_irq_callback_set(dev, interrupt_handler);
@@ -228,31 +324,16 @@ void main(void)
 	uart_irq_rx_enable(dev);
 
 
+	err = bt_enable(bt_ready);
 
+	if (err) { 
+	  usb_printf("Error enabling BLE\n");
+	}
+ 	
+	bt_set_name("BLE_TOOL_NRF52_FW");
+	bt_conn_cb_register(&conn_callbacks);
+	bt_conn_auth_cb_register(&auth_cb_display);
 
-	/*
-	usb_printf("Press \'s\' to start\n\r");
-
-	while (getChar() != 's');
-
-	char *data = (char *)malloc(1024);
-
-	usb_printf("ALLOC %s \n\r", (data == NULL) ? "FAILURE" : "SUCCESS");
-
-	free(data);
-
-	data = (char *)malloc(10240);
-
-	usb_printf("ALLOC %s \n\r", (data == NULL) ? "FAILURE" : "SUCCESS");
-
-	free(data);
-
-	data = (char *)malloc(32768);
-
-	usb_printf("ALLOC %s \n\r", (data == NULL) ? "FAILURE" : "SUCCESS");
-
-	free(data);
- 	*/
 
 	usb_printf("Allocating input/output buffers\n\r");
 	size_t len = 1024;
@@ -285,10 +366,16 @@ void main(void)
 		usb_printf("Error initializing evaluator.\n\r");
 	}
 
-	//VALUE prelude = prelude_load();
-	//eval_cps_program(prelude);
+	if (extensions_add("set-bat-level", bas_set_level)) {
+	  usb_printf("set-bat-level extension added.\n\r");
+	} else {
+	  usb_printf("set-bat-level extension failed!\n\r");
+	}
 
-	usb_printf("Lisp REPL started (ZEPHYR - NRF52)!\n\r");
+	VALUE prelude = prelude_load();
+	eval_cps_program(prelude);
+
+	usb_printf("Lisp REPL started (BLE_TOOL_NRF52_FW)!\n\r");
 
 	while (1) {
 		k_sleep(100);
@@ -299,7 +386,7 @@ void main(void)
 		usb_printf("\n\r");
 
 		if (strncmp(str, ":info", 5) == 0) {
-			usb_printf("##(FMRC)####################################################\n\r");
+			usb_printf("##(BLE_TOOL_NRF52_FW)#######################################\n\r");
 			usb_printf("Used cons cells: %lu \n\r", heap_size - heap_num_free());
 			usb_printf("ENV: "); simple_snprint(outbuf,1023, eval_cps_get_env()); usb_printf("%s \n\r", outbuf);
 			heap_get_state(&heap_state);
@@ -311,6 +398,8 @@ void main(void)
 			memset(outbuf,0, 1024);
 		} else if (strncmp(str, ":quit", 5) == 0) {
 			break;
+		} else if (strncmp(str, ":notify", 7) == 0) {
+		  bas_notify();
 		} else {
 
 			VALUE t;
@@ -328,6 +417,5 @@ void main(void)
 
 	symrepr_del();
 	heap_del();
-
 
 }

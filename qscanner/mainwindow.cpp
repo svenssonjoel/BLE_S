@@ -257,9 +257,12 @@ void MainWindow::bleServiceDiscovered(const QBluetoothUuid &gatt)
                 this, [this, bleService, it] (QLowEnergyService::ServiceState state) {
             qDebug() << "BLE Service state changed:" << state;
             switch(state) {
-            case QLowEnergyService::InvalidService:
-                ui->bleCharacteristicsListWidget->addItem("Invalid Service");
-                break;
+            case QLowEnergyService::InvalidService:  {
+                QTreeWidgetItem *child = new QTreeWidgetItem();
+
+                child->setText(0,"Invalid Service");
+                it->addChild(child);
+            } break;
             case QLowEnergyService::DiscoveryRequired:
                 break;
             case QLowEnergyService::DiscoveringServices:
@@ -274,9 +277,12 @@ void MainWindow::bleServiceDiscovered(const QBluetoothUuid &gatt)
 
                 }
                 break;
-            case QLowEnergyService::LocalService:
-                ui->bleCharacteristicsListWidget->addItem("Local Service");
-                break;
+            case QLowEnergyService::LocalService: {
+                QTreeWidgetItem *child = new QTreeWidgetItem();
+
+                child->setText(0,"Local Service");
+                it->addChild(child);
+            } break;
             }
         });
         connect(bleService, &QLowEnergyService::characteristicChanged,
@@ -586,5 +592,6 @@ void MainWindow::on_scriptDirBrowsePushButton_clicked()
 void MainWindow::on_bleServicesTreeWidget_currentItemChanged(QTreeWidgetItem *current, QTreeWidgetItem *previous)
 {
     (void) previous;
+    (void) current;
 
 }

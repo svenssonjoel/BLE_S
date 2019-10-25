@@ -1,10 +1,5 @@
 
 # BLE_TOOL
-TODO: Write a proper readme
 
-## PROGRAMMING NRF52 stlink
-openocd -f interface/stlink.cfg -f target/nrf52.cfg
+* Work in Progress.
 
-telnet localhost 4444
- > reset 
- > program zephyr.hex verify 

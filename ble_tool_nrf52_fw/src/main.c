@@ -64,8 +64,6 @@ static void interrupt_handler(struct device *dev)
 			if (rb_len < recv_len) {
                            //silently dropping bytes 
 			}
-
-
 		}
 
 		if (uart_irq_tx_ready(dev)) {

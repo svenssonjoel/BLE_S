@@ -72,6 +72,8 @@ private slots:
     void on_scriptDirBrowsePushButton_clicked();
     void on_bleServicesTreeWidget_currentItemChanged(QTreeWidgetItem *current, QTreeWidgetItem *previous);
 
+    void on_listenNotifyPushButton_clicked();
+
 private:
     Ui::MainWindow *ui;
 

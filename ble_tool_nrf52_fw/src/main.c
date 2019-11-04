@@ -51,89 +51,89 @@ struct ring_buf out_ringbuf;
 
 static void interrupt_handler(struct device *dev)
 {
-	while (uart_irq_update(dev) && uart_irq_is_pending(dev)) {
-		if (uart_irq_rx_ready(dev)) {
-			int recv_len, rb_len;
-			u8_t buffer[64];
-			size_t len = MIN(ring_buf_space_get(&in_ringbuf),
-					 sizeof(buffer));
+  while (uart_irq_update(dev) && uart_irq_is_pending(dev)) {
+    if (uart_irq_rx_ready(dev)) {
+      int recv_len, rb_len;
+      u8_t buffer[64];
+      size_t len = MIN(ring_buf_space_get(&in_ringbuf),
+		       sizeof(buffer));
 
-			recv_len = uart_fifo_read(dev, buffer, len);
+      recv_len = uart_fifo_read(dev, buffer, len);
 
-			rb_len = ring_buf_put(&in_ringbuf, buffer, recv_len);
-			if (rb_len < recv_len) {
-                           //silently dropping bytes 
-			}
-		}
+      rb_len = ring_buf_put(&in_ringbuf, buffer, recv_len);
+      if (rb_len < recv_len) {
+	//silently dropping bytes 
+      }
+    }
 
-		if (uart_irq_tx_ready(dev)) {
-			u8_t buffer[64];
-			int rb_len, send_len;
+    if (uart_irq_tx_ready(dev)) {
+      u8_t buffer[64];
+      int rb_len, send_len;
 
-			rb_len = ring_buf_get(&out_ringbuf, buffer, sizeof(buffer));
-			if (!rb_len) {
-				uart_irq_tx_disable(dev);
-				continue;
-			}
+      rb_len = ring_buf_get(&out_ringbuf, buffer, sizeof(buffer));
+      if (!rb_len) {
+	uart_irq_tx_disable(dev);
+	continue;
+      }
 
-			send_len = uart_fifo_fill(dev, buffer, rb_len);
-			if (send_len < rb_len) {
-                              //LOG_ERR("Drop %d bytes", rb_len - send_len);
-			}
-		}
-	}
+      send_len = uart_fifo_fill(dev, buffer, rb_len);
+      if (send_len < rb_len) {
+	//LOG_ERR("Drop %d bytes", rb_len - send_len);
+      }
+    }
+  }
 }
 
 int getChar() {
 
-	k_mutex_lock(&uart_io_mutex, K_FOREVER);
-	int n;
-	u8_t c;
-	unsigned int key = irq_lock();
-	n = ring_buf_get(&in_ringbuf, &c, 1);
-	irq_unlock(key);
-	k_mutex_unlock(&uart_io_mutex);
-	if (n == 1) {
-		return c;
-	}
-	return -1;
+  k_mutex_lock(&uart_io_mutex, K_FOREVER);
+  int n;
+  u8_t c;
+  unsigned int key = irq_lock();
+  n = ring_buf_get(&in_ringbuf, &c, 1);
+  irq_unlock(key);
+  k_mutex_unlock(&uart_io_mutex);
+  if (n == 1) {
+    return c;
+  }
+  return -1;
 }
 
 void putChar(int i) {
-	if (i >= 0 && i < 256) {
-		k_mutex_lock(&uart_io_mutex, K_FOREVER);
+  if (i >= 0 && i < 256) {
+    k_mutex_lock(&uart_io_mutex, K_FOREVER);
 
-		u8_t c = (u8_t)i;
-		unsigned int key = irq_lock();
-		ring_buf_put(&out_ringbuf, &c, 1);
-		uart_irq_tx_enable(dev);
-		irq_unlock(key);
-		k_mutex_unlock(&uart_io_mutex);
-	}
+    u8_t c = (u8_t)i;
+    unsigned int key = irq_lock();
+    ring_buf_put(&out_ringbuf, &c, 1);
+    uart_irq_tx_enable(dev);
+    irq_unlock(key);
+    k_mutex_unlock(&uart_io_mutex);
+  }
 }
 
 void usb_printf(char *format, ...) {
-	k_mutex_lock(&uart_io_mutex, K_FOREVER);
+  k_mutex_lock(&uart_io_mutex, K_FOREVER);
 
-	va_list arg;
-	va_start(arg, format);
-	int len;
-	static char print_buffer[4096];
+  va_list arg;
+  va_start(arg, format);
+  int len;
+  static char print_buffer[4096];
 	
-	len = vsnprintf(print_buffer, 4096,format, arg);
-	va_end(arg);
+  len = vsnprintf(print_buffer, 4096,format, arg);
+  va_end(arg);
 
-	int num_written = 0;
-	while (len - num_written > 0) {
-		unsigned int key = irq_lock();
-		num_written +=
-			ring_buf_put(&out_ringbuf,
-				         (print_buffer + num_written),
-				         (len - num_written));
-		irq_unlock(key);
-		uart_irq_tx_enable(dev);
-	}
-	k_mutex_unlock(&uart_io_mutex);
+  int num_written = 0;
+  while (len - num_written > 0) {
+    unsigned int key = irq_lock();
+    num_written +=
+      ring_buf_put(&out_ringbuf,
+		   (print_buffer + num_written),
+		   (len - num_written));
+    irq_unlock(key);
+    uart_irq_tx_enable(dev);
+  }
+  k_mutex_unlock(&uart_io_mutex);
 }
 
 
@@ -157,12 +157,12 @@ int inputline(char *buffer, int size) {
       buffer[n] = 0;
       return n;
     default:
-    	if (c != -1 && c < 256) {
-    		putChar(c);
-    		buffer[n] = c;
-    	} else {
-    		n --;
-    	}
+      if (c != -1 && c < 256) {
+	putChar(c);
+	buffer[n] = c;
+      } else {
+	n --;
+      }
 
       break;
     }
@@ -172,13 +172,69 @@ int inputline(char *buffer, int size) {
 }
 
 static const struct bt_data ad[] = {
-	BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
-	BT_DATA_BYTES(BT_DATA_UUID16_ALL,
-		      0x0d, 0x18, 0x0f, 0x18, 0x05, 0x18),
-	BT_DATA_BYTES(BT_DATA_UUID128_ALL,
-		      0xf0, 0xde, 0xbc, 0x9a, 0x78, 0x56, 0x34, 0x12,
-		      0x78, 0x56, 0x34, 0x12, 0x78, 0x56, 0x34, 0x12),
+  BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
+  BT_DATA_BYTES(BT_DATA_UUID16_ALL,
+		0x0d, 0x18, 0x0f, 0x18, 0x05, 0x18),
+  BT_DATA_BYTES(BT_DATA_UUID128_ALL,
+		0xf0, 0xde, 0x00, 0x01, 0x78, 0x56, 0x34, 0x12,
+		0x78, 0x56, 0x34, 0x12, 0x78, 0x56, 0x34, 0x12)
+  /*  BT_DATA_BYTES(BT_DATA_UUID128_ALL,
+		0xf0, 0xde, 0xbc, 0x9a, 0x78, 0x56, 0x34, 0x12,
+		0x78, 0x56, 0x34, 0x12, 0x78, 0x56, 0x34, 0x12),*/
 };
+
+static struct bt_uuid_128 bt_uart_base_uuid =
+  BT_UUID_INIT_128(0x9E, 0xCA, 0xDC, 0x24, 0x0E, 0xE5, 0xA9, 0xE0,
+		   0x93, 0xF3, 0xA3, 0xB5, 0x01, 0x00, 0x40, 0x6E);
+
+  
+static struct bt_uuid_128 bt_uart_tx_uuid =
+  BT_UUID_INIT_128(0x9E, 0xCA, 0xDC, 0x24, 0x0E, 0xE5, 0xA9, 0xE0,
+		   0x93, 0xF3, 0xA3, 0xB5, 0x02, 0x00, 0x40, 0x6E);
+
+static struct bt_uuid_128 bt_uart_rx_uuid =
+  BT_UUID_INIT_128(0x9E, 0xCA, 0xDC, 0x24, 0x0E, 0xE5, 0xA9, 0xE0,
+		   0x93, 0xF3, 0xA3, 0xB5, 0x03, 0x00, 0x40, 0x6E);
+
+static u8_t bt_uart_write_buf[20];
+static u8_t bt_uart_read_buf[20] = "apa";
+
+static ssize_t bt_uart_write(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+			     const void *buf, u16_t len, u16_t offset,
+			     u8_t flags) {
+  u8_t *value = attr->user_data;
+	
+  if (offset + len > sizeof(bt_uart_write_buf)) {
+    //return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
+    return 0;
+  }
+	
+  memcpy(value + offset, buf, len);
+
+  return len;
+}
+
+static ssize_t bt_uart_read(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+			    void *buf, u16_t len, u16_t offset)
+{
+	const char *value = attr->user_data;
+
+	return bt_gatt_attr_read(conn, attr, buf, len, offset, value,
+				 strlen(value));
+}
+
+  
+BT_GATT_SERVICE_DEFINE(bt_uart,
+		       BT_GATT_PRIMARY_SERVICE(&bt_uart_base_uuid),
+		       BT_GATT_CHARACTERISTIC(&bt_uart_tx_uuid.uuid, // TX from the point of view of the central
+					      BT_GATT_CHRC_WRITE,    // central is allowed to write to tx
+					      BT_GATT_PERM_WRITE,
+					      NULL, bt_uart_write, bt_uart_write_buf),
+		       BT_GATT_CHARACTERISTIC(&bt_uart_rx_uuid.uuid, // RX from point of view of central
+					      BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
+					      BT_GATT_PERM_READ,
+					      bt_uart_read, NULL, bt_uart_read_buf));
+		       
 
 static void connected(struct bt_conn *conn, u8_t err)
 {

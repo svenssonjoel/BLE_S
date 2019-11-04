@@ -272,7 +272,11 @@ void MainWindow::bleServiceDiscovered(const QBluetoothUuid &gatt)
                     QTreeWidgetItem *child = new QTreeWidgetItem();
 
                     child->setData(0,Qt::UserRole, QVariant::fromValue(c));
-                    child->setText(0,c.name());
+                    if (!c.name().isEmpty()) {
+                        child->setText(0,c.name());
+                    } else {
+                        child->setText(0,c.uuid().toString());
+                    }
                     it->addChild(child);
 
                 }

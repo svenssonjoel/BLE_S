@@ -315,34 +315,6 @@ void MainWindow::bleServiceDiscoveryFinished()
     qDebug() << "BLE Discovery done!";
 }
 
-void MainWindow::bleServiceStateChanged(QLowEnergyService::ServiceState state)
-{
-    qDebug() << "BLE Service state changed:" << state;
-
-
-    switch(state) {
-    case QLowEnergyService::InvalidService:
-        ui->bleCharacteristicsListWidget->addItem("Invalid Service");
-        break;
-    case QLowEnergyService::DiscoveryRequired:
-        break;
-    case QLowEnergyService::DiscoveringServices:
-        break;
-    case QLowEnergyService::ServiceDiscovered:
-        for (auto c : mBLEService->characteristics()) {
-            QListWidgetItem *it = new QListWidgetItem();
-
-            it->setData(Qt::UserRole, QVariant::fromValue(c));
-            it->setText(c.name());
-            ui->bleCharacteristicsListWidget->addItem(it);
-        }
-        break;
-    case QLowEnergyService::LocalService:
-        ui->bleCharacteristicsListWidget->addItem("Local Service");
-        break;
-    }
-}
-
 void MainWindow::bleServiceCharacteristic(const QLowEnergyCharacteristic &info, const QByteArray &value)
 {
     QString str = info.name();

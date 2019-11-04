@@ -241,9 +241,6 @@
                  </property>
                 </widget>
                </item>
-               <item row="1" column="1">
-                <widget class="QListWidget" name="bleCharacteristicsListWidget"/>
-               </item>
                <item row="1" column="0">
                 <widget class="QTreeWidget" name="bleServicesTreeWidget">
                  <attribute name="headerVisible">
@@ -255,6 +252,19 @@
                   </property>
                  </column>
                 </widget>
+               </item>
+               <item row="1" column="1">
+                <spacer name="horizontalSpacer_3">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>40</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
                </item>
               </layout>
              </item>
@@ -316,9 +326,14 @@
         </item>
        </layout>
       </widget>
+      <widget class="QWidget" name="tab_7">
+       <attribute name="title">
+        <string>BLE UART</string>
+       </attribute>
+      </widget>
       <widget class="QWidget" name="tab_4">
        <attribute name="title">
-        <string>External</string>
+        <string>USB Lisp</string>
        </attribute>
        <layout class="QGridLayout" name="gridLayout_10">
         <item row="0" column="0">

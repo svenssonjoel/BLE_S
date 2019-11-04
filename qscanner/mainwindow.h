@@ -52,7 +52,6 @@ public slots:
     void socketError();
     void bleServiceDiscovered(const QBluetoothUuid &gatt);
     void bleServiceDiscoveryFinished();
-    void bleServiceStateChanged(QLowEnergyService::ServiceState);
     void bleServiceCharacteristic(const QLowEnergyCharacteristic &info,
                                   const QByteArray &value);
     void bleServiceCharacteristicRead(const QLowEnergyCharacteristic &info,

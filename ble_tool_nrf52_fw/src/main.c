@@ -1,17 +1,19 @@
-
 /*
- * Copyright (c) 2019 Intel Corporation
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+    Copyright 2019 Joel Svensson	svenssonjoel@yahoo.se
 
-/**
- * @file
- * @brief Sample echo app for CDC ACM class
- *
- * Sample app for USB CDC ACM class driver. The received data is echoed back
- * to the serial port.
- */
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include <stdio.h>
 #include <string.h>
@@ -62,7 +64,7 @@ static void interrupt_handler(struct device *dev)
 
       rb_len = ring_buf_put(&in_ringbuf, buffer, recv_len);
       if (rb_len < recv_len) {
-	//silently dropping bytes 
+	//silently dropping bytes
       }
     }
 
@@ -84,7 +86,7 @@ static void interrupt_handler(struct device *dev)
   }
 }
 
-int getChar() {
+int get_char() {
 
   k_mutex_lock(&uart_io_mutex, K_FOREVER);
   int n;
@@ -99,7 +101,7 @@ int getChar() {
   return -1;
 }
 
-void putChar(int i) {
+void put_char(int i) {
   if (i >= 0 && i < 256) {
     k_mutex_lock(&uart_io_mutex, K_FOREVER);
 
@@ -119,7 +121,7 @@ void usb_printf(char *format, ...) {
   va_start(arg, format);
   int len;
   static char print_buffer[4096];
-	
+
   len = vsnprintf(print_buffer, 4096,format, arg);
   va_end(arg);
 
@@ -142,14 +144,14 @@ int inputline(char *buffer, int size) {
   int c;
   for (n = 0; n < size - 1; n++) {
 
-    c = getChar();
+    c = get_char();
     switch (c) {
     case 127: /* fall through to below */
     case '\b': /* backspace character received */
       if (n > 0)
         n--;
       buffer[n] = 0;
-      putChar('\b'); /* output backspace character */
+      put_char('\b'); /* output backspace character */
       n--; /* set up next iteration to deal with preceding char location */
       break;
     case '\n': /* fall through to \r */
@@ -158,7 +160,7 @@ int inputline(char *buffer, int size) {
       return n;
     default:
       if (c != -1 && c < 256) {
-	putChar(c);
+	put_char(c);
 	buffer[n] = c;
       } else {
 	n --;
@@ -171,23 +173,25 @@ int inputline(char *buffer, int size) {
   return 0; // Filled up buffer without reading a linebreak
 }
 
+// 0x180d  -- Heart rate service
+// 0x1805  -- Current time service
+// 0x180A  -- Device Information Service (activated via the prj.conf file)
+
+
 static const struct bt_data ad[] = {
   BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
-  BT_DATA_BYTES(BT_DATA_UUID16_ALL,
-  		0x0d, 0x18, 0x0f, 0x18, 0x05, 0x18),
-  BT_DATA_BYTES(BT_DATA_UUID128_ALL,
+  BT_DATA_BYTES(BT_DATA_UUID16_ALL, // Advertise a battery level service.
+		0x0f, 0x18),
+  BT_DATA_BYTES(BT_DATA_UUID128_ALL, // Advertice BLE UART service
 		0x9E, 0xCA, 0xDC, 0x24, 0x0E, 0xE5, 0xA9, 0xE0,
 		0x93, 0xF3, 0xA3, 0xB5, 0x01, 0x00, 0x40, 0x6E)
-  /*  BT_DATA_BYTES(BT_DATA_UUID128_ALL,
-		0xf0, 0xde, 0xbc, 0x9a, 0x78, 0x56, 0x34, 0x12,
-		0x78, 0x56, 0x34, 0x12, 0x78, 0x56, 0x34, 0x12),*/
 };
 
 static struct bt_uuid_128 bt_uart_base_uuid =
   BT_UUID_INIT_128(0x9E, 0xCA, 0xDC, 0x24, 0x0E, 0xE5, 0xA9, 0xE0,
 		   0x93, 0xF3, 0xA3, 0xB5, 0x01, 0x00, 0x40, 0x6E);
 
-  
+
 static struct bt_uuid_128 bt_uart_tx_uuid =
   BT_UUID_INIT_128(0x9E, 0xCA, 0xDC, 0x24, 0x0E, 0xE5, 0xA9, 0xE0,
 		   0x93, 0xF3, 0xA3, 0xB5, 0x02, 0x00, 0x40, 0x6E);
@@ -203,16 +207,16 @@ static ssize_t bt_uart_write(struct bt_conn *conn, const struct bt_gatt_attr *at
 			     const void *buf, u16_t len, u16_t offset,
 			     u8_t flags) {
   u8_t *value = attr->user_data;
-	
+
   if (len > sizeof(bt_uart_write_buf)) {
     //return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
     return 0;
   }
-	
+
   memcpy(value + offset, buf, len);
 
   bt_gatt_notify(NULL, attr, buf, len);
-  
+
   return len;
 }
 
@@ -230,12 +234,12 @@ static void bt_uart_ccc_changed(const struct bt_gatt_attr *attr,
 {
   (void) attr;
 
-  bool notif_enabled = (value == BT_GATT_CCC_NOTIFY);
-  
-  //LOG_INF("BAS Notifications %s", notif_enabled ? "enabled" : "disabled");
+  // bool notif_enabled = (value == BT_GATT_CCC_NOTIFY);
+
+  // LOG_INF("BAS Notifications %s", notif_enabled ? "enabled" : "disabled");
 }
 
-  
+
 BT_GATT_SERVICE_DEFINE(bt_uart,
 		       BT_GATT_PRIMARY_SERVICE(&bt_uart_base_uuid),
 		       BT_GATT_CHARACTERISTIC(&bt_uart_tx_uuid.uuid, // TX from the point of view of the central
@@ -248,7 +252,35 @@ BT_GATT_SERVICE_DEFINE(bt_uart,
 					      bt_uart_read, NULL, bt_uart_read_buf),
 		       BT_GATT_CCC(bt_uart_ccc_changed,
 				   BT_GATT_PERM_READ | BT_GATT_PERM_WRITE));
-		       
+
+void ble_put_char(int i) {
+
+  u8_t c = (u8_t) i;
+
+  bt_gatt_notify(NULL, &bt_uart.attrs[2], &c, 1);
+}
+
+void ble_printf(char *format, ...) {
+
+  va_list arg;
+  va_start(arg, format);
+  int len;
+  static char print_buffer[4096];
+
+  len = vsnprintf(print_buffer, 4096,format, arg);
+  va_end(arg);
+
+  int offset = 0;
+  int bytes_left = len;
+  while (bytes_left > 0) {
+    int chunk_size = (bytes_left > 20 ? 20 : bytes_left);
+    bt_gatt_notify(NULL,&bt_uart.attrs[2], print_buffer+offset, chunk_size);
+    bytes_left -= chunk_size;
+    offset += chunk_size;
+  }
+}
+
+
 
 static void connected(struct bt_conn *conn, u8_t err)
 {
@@ -269,6 +301,7 @@ static struct bt_conn_cb conn_callbacks = {
 	.disconnected = disconnected,
 };
 
+/*
 static void auth_passkey_display(struct bt_conn *conn, unsigned int passkey)
 {
 	char addr[BT_ADDR_LE_STR_LEN];
@@ -291,7 +324,7 @@ static struct bt_conn_auth_cb auth_cb_display = {
 	.passkey_entry = NULL,
 	.cancel = auth_cancel,
 };
-
+*/
 static void bt_ready(int err)
 {
 	if (err) {
@@ -328,18 +361,26 @@ static void bas_notify(void)
 }
 
 
-static VALUE bas_set_level(VALUE *args, int argn) 
-{
+static VALUE bas_set_level(VALUE *args, int argn) {
   if (argn != 1) {
     return enc_sym(symrepr_nil());
   }
   int bat_lvl = dec_i(args[0]);
-  
+
   bt_gatt_bas_set_battery_level((u8_t)bat_lvl);
   return enc_sym(symrepr_true());
 }
 
- 
+static VALUE hello_world(VALUE *args, int argn) {
+  if (argn != 0) {
+    return enc_sym(symrepr_nil());
+  }
+
+  ble_printf("Hello world\n\r");
+
+  return enc_sym(symrepr_true());
+}
+
 void main(void)
 {
 
@@ -394,13 +435,13 @@ void main(void)
 
 	err = bt_enable(bt_ready);
 
-	if (err) { 
+	if (err) {
 	  usb_printf("Error enabling BLE\n");
 	}
- 	
+
 	bt_set_name("BLE_TOOL_NRF52_FW");
 	bt_conn_cb_register(&conn_callbacks);
-	bt_conn_auth_cb_register(&auth_cb_display);
+	//bt_conn_auth_cb_register(&auth_cb_display);
 
 
 	usb_printf("Allocating input/output buffers\n\r");
@@ -439,6 +480,13 @@ void main(void)
 	} else {
 	  usb_printf("set-bat-level extension failed!\n\r");
 	}
+
+	if (extensions_add("hello-world", hello_world)) {
+	  usb_printf("hello-world extension added.\n\r");
+	} else {
+	  usb_printf("hello-world extension failed!\n\r");
+	}
+
 
 	VALUE prelude = prelude_load();
 	eval_cps_program(prelude);

@@ -176,8 +176,8 @@ static const struct bt_data ad[] = {
   BT_DATA_BYTES(BT_DATA_UUID16_ALL,
 		0x0d, 0x18, 0x0f, 0x18, 0x05, 0x18),
   BT_DATA_BYTES(BT_DATA_UUID128_ALL,
-		0xf0, 0xde, 0x00, 0x01, 0x78, 0x56, 0x34, 0x12,
-		0x78, 0x56, 0x34, 0x12, 0x78, 0x56, 0x34, 0x12)
+		0x9E, 0xCA, 0xDC, 0x24, 0x0E, 0xE5, 0xA9, 0xE0,
+		0x93, 0xF3, 0xA3, 0xB5, 0x01, 0x00, 0x40, 0x6E)
   /*  BT_DATA_BYTES(BT_DATA_UUID128_ALL,
 		0xf0, 0xde, 0xbc, 0x9a, 0x78, 0x56, 0x34, 0x12,
 		0x78, 0x56, 0x34, 0x12, 0x78, 0x56, 0x34, 0x12),*/
@@ -204,13 +204,15 @@ static ssize_t bt_uart_write(struct bt_conn *conn, const struct bt_gatt_attr *at
 			     u8_t flags) {
   u8_t *value = attr->user_data;
 	
-  if (offset + len > sizeof(bt_uart_write_buf)) {
+  if (len > sizeof(bt_uart_write_buf)) {
     //return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
     return 0;
   }
 	
   memcpy(value + offset, buf, len);
 
+  bt_gatt_notify(NULL, attr, buf, len);
+  
   return len;
 }
 
@@ -223,6 +225,16 @@ static ssize_t bt_uart_read(struct bt_conn *conn, const struct bt_gatt_attr *att
 				 strlen(value));
 }
 
+static void bt_uart_ccc_changed(const struct bt_gatt_attr *attr,
+				       u16_t value)
+{
+  (void) attr;
+
+  bool notif_enabled = (value == BT_GATT_CCC_NOTIFY);
+  
+  //LOG_INF("BAS Notifications %s", notif_enabled ? "enabled" : "disabled");
+}
+
   
 BT_GATT_SERVICE_DEFINE(bt_uart,
 		       BT_GATT_PRIMARY_SERVICE(&bt_uart_base_uuid),
@@ -233,7 +245,9 @@ BT_GATT_SERVICE_DEFINE(bt_uart,
 		       BT_GATT_CHARACTERISTIC(&bt_uart_rx_uuid.uuid, // RX from point of view of central
 					      BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
 					      BT_GATT_PERM_READ,
-					      bt_uart_read, NULL, bt_uart_read_buf));
+					      bt_uart_read, NULL, bt_uart_read_buf),
+		       BT_GATT_CCC(bt_uart_ccc_changed,
+				   BT_GATT_PERM_READ | BT_GATT_PERM_WRITE));
 		       
 
 static void connected(struct bt_conn *conn, u8_t err)

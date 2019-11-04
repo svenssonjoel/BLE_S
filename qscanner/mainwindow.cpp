@@ -338,7 +338,13 @@ void MainWindow::bleServiceCharacteristic(const QLowEnergyCharacteristic &info, 
     //str.append(": ");
     str.append(QString(value));
 
-    ui->outputPlainTextEdit->appendPlainText(str);
+    // If value comes from uart service, redirect to uart text output
+    if (info.uuid() == QBluetoothUuid(QString("{6e400003-b5a3-f393-e0a9-e50e24dcca9e}"))) {
+        // UART RX
+        ui->bleUartOutputPlainTextEdit->appendPlainText(str);
+    } else {
+        ui->outputPlainTextEdit->appendPlainText(str);
+    }
 }
 
 void MainWindow::bleServiceCharacteristicRead(const QLowEnergyCharacteristic &info, const QByteArray &value)
@@ -634,3 +640,58 @@ void MainWindow::on_listenNotifyPushButton_clicked()
     }
 
 }
+
+void MainWindow::on_bleUartConnectPushButton_clicked()
+{
+    qDebug() << "Ble uart connect clicked";
+
+    QTreeWidgetItem *it = ui->bleServicesTreeWidget->currentItem();
+
+    if (!it) return;
+
+    // the root service here should be of ble uart type.
+    QTreeWidgetItem *p = it;
+
+    while (p->parent() != nullptr) {
+        p = p->parent();
+    }
+
+    if (!(p->data(1, Qt::UserRole).canConvert<QLowEnergyService*>())) {
+        qDebug() << "root of tree is not a service!";
+        return;
+    }
+    QLowEnergyService *s = p->data(1, Qt::UserRole).value<QLowEnergyService*>();
+
+    QList<QLowEnergyCharacteristic> chs =  s->characteristics();
+
+    if (chs.size() != 2) {
+        qDebug() << "Ble uart service should have exactly 2 characteristics";
+        return;
+    }
+
+    QLowEnergyCharacteristic rx;
+    if (chs[0].uuid() == QBluetoothUuid(QString("{6e400003-b5a3-f393-e0a9-e50e24dcca9e}"))) {
+        // 0 is RX
+        rx = s->characteristic(QBluetoothUuid(chs[0].uuid()));
+    } else if (chs[1].uuid() == QBluetoothUuid(QString("{6e400003-b5a3-f393-e0a9-e50e24dcca9e}"))) {
+        // 1 is RX
+        rx = s->characteristic(QBluetoothUuid(chs[1].uuid()));
+    } else  {
+        qDebug() << chs[0].uuid().toString();
+        qDebug() << chs[1].uuid().toString();
+        qDebug() << "Probably not a proper uart!";
+        return;
+    }
+
+    QLowEnergyDescriptor desc = rx.descriptor(QBluetoothUuid::ClientCharacteristicConfiguration);
+
+    if (desc.isValid()) {
+        // enable notification
+        s->writeDescriptor(desc, QByteArray::fromHex("0100"));
+    } else {
+        qDebug() << "Rx Characteristc descriptor is invalid!";
+    }
+
+
+}
+

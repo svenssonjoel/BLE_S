@@ -90,6 +90,8 @@ private slots:
 
     void on_listenNotifyPushButton_clicked();
 
+    void on_bleUartConnectPushButton_clicked();
+
 private:
     Ui::MainWindow *ui;
 

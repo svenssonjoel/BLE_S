@@ -13,5 +13,7 @@
    
 
 [background](https://youtu.be/drmXdoRu3AQ)
+
 [Implementing get_char and put_char on nrf52](https://youtu.be/auHo9wq7pX4)
+
 [lispBM porting effort](https://youtu.be/cXSavxC3th0)

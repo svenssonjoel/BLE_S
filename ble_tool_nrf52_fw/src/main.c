@@ -45,11 +45,16 @@
 u8_t in_ring_buffer[RING_BUF_SIZE];
 u8_t out_ring_buffer[RING_BUF_SIZE];
 
+u8_t ble_in_ring_buffer[RING_BUF_SIZE];
+
 K_MUTEX_DEFINE(uart_io_mutex);
+K_MUTEX_DEFINE(ble_uart_mutex);
+
 struct device *dev;
 
 struct ring_buf in_ringbuf;
 struct ring_buf out_ringbuf;
+struct ring_buf ble_in_ringbuf; 
 
 static void interrupt_handler(struct device *dev)
 {
@@ -200,24 +205,27 @@ static struct bt_uuid_128 bt_uart_rx_uuid =
   BT_UUID_INIT_128(0x9E, 0xCA, 0xDC, 0x24, 0x0E, 0xE5, 0xA9, 0xE0,
 		   0x93, 0xF3, 0xA3, 0xB5, 0x03, 0x00, 0x40, 0x6E);
 
-static u8_t bt_uart_write_buf[20];
 static u8_t bt_uart_read_buf[20] = "apa";
 
 static ssize_t bt_uart_write(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 			     const void *buf, u16_t len, u16_t offset,
 			     u8_t flags) {
-  u8_t *value = attr->user_data;
+  //u8_t *value = attr->user_data;
 
-  if (len > sizeof(bt_uart_write_buf)) {
+  //if (len > sizeof(bt_uart_write_buf)) {
     //return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
-    return 0;
-  }
+  //  return 0;
+  //}
 
-  memcpy(value + offset, buf, len);
+  //memcpy(value + offset, buf, len);
 
-  bt_gatt_notify(NULL, attr, buf, len);
+  int n = ring_buf_put(&ble_in_ringbuf,buf, len);
+  //usb_printf("%s\n\r", buf);
+  
+  //usb_printf("%d \n\r", n);
+  //bt_gatt_notify(NULL, attr, buf, len);
 
-  return len;
+  return n;
 }
 
 static ssize_t bt_uart_read(struct bt_conn *conn, const struct bt_gatt_attr *attr,
@@ -235,8 +243,6 @@ static void bt_uart_ccc_changed(const struct bt_gatt_attr *attr,
   (void) attr;
 
   // bool notif_enabled = (value == BT_GATT_CCC_NOTIFY);
-
-  // LOG_INF("BAS Notifications %s", notif_enabled ? "enabled" : "disabled");
 }
 
 
@@ -245,13 +251,30 @@ BT_GATT_SERVICE_DEFINE(bt_uart,
 		       BT_GATT_CHARACTERISTIC(&bt_uart_tx_uuid.uuid, // TX from the point of view of the central
 					      BT_GATT_CHRC_WRITE,    // central is allowed to write to tx
 					      BT_GATT_PERM_WRITE,
-					      NULL, bt_uart_write, bt_uart_write_buf),
+					      NULL, bt_uart_write, NULL),
 		       BT_GATT_CHARACTERISTIC(&bt_uart_rx_uuid.uuid, // RX from point of view of central
 					      BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
 					      BT_GATT_PERM_READ,
 					      bt_uart_read, NULL, bt_uart_read_buf),
 		       BT_GATT_CCC(bt_uart_ccc_changed,
 				   BT_GATT_PERM_READ | BT_GATT_PERM_WRITE));
+
+
+int ble_get_char(void) {
+
+  //k_mutex_lock(&ble_uart_mutex, K_FOREVER);
+  int n;
+  u8_t c;
+  
+  n = ring_buf_get(&ble_in_ringbuf, &c, 1);
+  
+  //k_mutex_unlock(&ble_uart_mutex);
+  if (n == 1) {
+    return c;
+  }
+  return -1;
+ 
+}
 
 void ble_put_char(int i) {
 
@@ -280,7 +303,39 @@ void ble_printf(char *format, ...) {
   }
 }
 
+int ble_inputline(char *buffer, int size) {
+  int n = 0;
+  int c;
+  for (n = 0; n < size - 1; n++) {
 
+    c = ble_get_char();
+    switch (c) {
+    case 127: /* fall through to below */
+    case '\b': /* backspace character received */
+      if (n > 0)
+        n--;
+      buffer[n] = 0;
+      ble_put_char('\b'); /* output backspace character */
+      n--; /* set up next iteration to deal with preceding char location */
+      break;
+    case '\n': /* fall through to \r */
+    case '\r':
+      buffer[n] = 0;
+      return n;
+    default:
+      if (c != -1 && c < 256) {
+	ble_put_char(c);
+	buffer[n] = c;
+      } else {
+	n --;
+      }
+
+      break;
+    }
+  }
+  buffer[size - 1] = 0;
+  return 0; // Filled up buffer without reading a linebreak
+}
 
 static void connected(struct bt_conn *conn, u8_t err)
 {
@@ -301,30 +356,7 @@ static struct bt_conn_cb conn_callbacks = {
 	.disconnected = disconnected,
 };
 
-/*
-static void auth_passkey_display(struct bt_conn *conn, unsigned int passkey)
-{
-	char addr[BT_ADDR_LE_STR_LEN];
 
-	bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
-
-	printk("Passkey for %s: %06u\n", addr, passkey);
-}
-
-static void auth_cancel(struct bt_conn *conn)
-{
-	char addr[BT_ADDR_LE_STR_LEN];
-
-	bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
-
-	printk("Pairing cancelled: %s\n", addr);
-}
-static struct bt_conn_auth_cb auth_cb_display = {
-	.passkey_display = auth_passkey_display,
-	.passkey_entry = NULL,
-	.cancel = auth_cancel,
-};
-*/
 static void bt_ready(int err)
 {
 	if (err) {
@@ -360,7 +392,6 @@ static void bas_notify(void)
 	bt_gatt_bas_set_battery_level(battery_level);
 }
 
-
 static VALUE bas_set_level(VALUE *args, int argn) {
   if (argn != 1) {
     return enc_sym(symrepr_nil());
@@ -384,154 +415,150 @@ static VALUE hello_world(VALUE *args, int argn) {
 void main(void)
 {
 
-	u32_t baudrate, dtr = 0U;
-	int ret;
-	int err;
+  u32_t baudrate, dtr = 0U;
+  int ret;
+  int err;
 
-	dev = device_get_binding("CDC_ACM_0");
-	if (!dev) {
-		return;
-	}
+  dev = device_get_binding("CDC_ACM_0");
+  if (!dev) {
+    return;
+  }
 
-	ring_buf_init(&in_ringbuf, sizeof(in_ring_buffer), in_ring_buffer);
-	ring_buf_init(&out_ringbuf, sizeof(out_ring_buffer), out_ring_buffer);
+  ring_buf_init(&in_ringbuf, sizeof(in_ring_buffer), in_ring_buffer);
+  ring_buf_init(&out_ringbuf, sizeof(out_ring_buffer), out_ring_buffer);
+  ring_buf_init(&ble_in_ringbuf, sizeof(ble_in_ring_buffer), ble_in_ring_buffer);
+  /*
+  while (true) {
+    uart_line_ctrl_get(dev, LINE_CTRL_DTR, &dtr);
+    if (dtr) {
+      break;
+    } else {
+      k_sleep(100);
+    }
+  }
 
-	while (true) {
-		uart_line_ctrl_get(dev, LINE_CTRL_DTR, &dtr);
-		if (dtr) {
-			break;
-		} else {
-			/* Give CPU resources to low priority threads. */
-			k_sleep(100);
-		}
-	}
+  ret = uart_line_ctrl_set(dev, LINE_CTRL_DCD, 1);
+  if (ret) {
+    //LOG_WRN("Failed to set DCD, ret code %d", ret);
+  }
 
-	/* They are optional, we use them to test the interrupt endpoint */
-	ret = uart_line_ctrl_set(dev, LINE_CTRL_DCD, 1);
-	if (ret) {
-	  //LOG_WRN("Failed to set DCD, ret code %d", ret);
-	}
+  ret = uart_line_ctrl_set(dev, LINE_CTRL_DSR, 1);
+  if (ret) {
+    //LOG_WRN("Failed to set DSR, ret code %d", ret);
+  }
+  
 
-	ret = uart_line_ctrl_set(dev, LINE_CTRL_DSR, 1);
-	if (ret) {
-	  //LOG_WRN("Failed to set DSR, ret code %d", ret);
-	}
+  k_busy_wait(1000000);
 
-	/* Wait 1 sec for the host to do all settings */
-	k_busy_wait(1000000);
+  ret = uart_line_ctrl_get(dev, LINE_CTRL_BAUD_RATE, &baudrate);
+  if (ret) {
+    //LOG_WRN("Failed to get baudrate, ret code %d", ret);
+  } else {
+    //LOG_INF("Baudrate detected: %d", baudrate);
+  }
 
-	ret = uart_line_ctrl_get(dev, LINE_CTRL_BAUD_RATE, &baudrate);
-	if (ret) {
-	  //LOG_WRN("Failed to get baudrate, ret code %d", ret);
-	} else {
-	  //LOG_INF("Baudrate detected: %d", baudrate);
-	}
+  uart_irq_callback_set(dev, interrupt_handler);
+  
+  uart_irq_rx_enable(dev);
+  */
 
-	uart_irq_callback_set(dev, interrupt_handler);
+  err = bt_enable(bt_ready);
 
-	/* Enable rx interrupts */
-	uart_irq_rx_enable(dev);
+  if (err) {
+    ble_printf("Error enabling BLE\n");
+  }
 
+  bt_set_name("BLE_TOOL_NRF52_FW");
+  bt_conn_cb_register(&conn_callbacks);
+  //bt_conn_auth_cb_register(&auth_cb_display);
 
-	err = bt_enable(bt_ready);
+  ble_printf("Allocating input/output buffers\n\r");
+  size_t len = 1024;
+  char *str = malloc(1024);
+  char *outbuf = malloc(4096);
+  int res = 0;
 
-	if (err) {
-	  usb_printf("Error enabling BLE\n");
-	}
+  heap_state_t heap_state;
 
-	bt_set_name("BLE_TOOL_NRF52_FW");
-	bt_conn_cb_register(&conn_callbacks);
-	//bt_conn_auth_cb_register(&auth_cb_display);
+  res = symrepr_init();
+  if (res)
+    ble_printf("Symrepr initialized.\n\r");
+  else {
+    ble_printf("Error initializing symrepr!\n\r");
+    return;
+  }
+  int heap_size = 2048;
+  res = heap_init(heap_size);
+  if (res)
+    ble_printf("Heap initialized. Free cons cells: %u\n\r", heap_num_free());
+  else {
+    ble_printf("Error initializing heap!\n\r");
+    return;
+  }
 
+  res = eval_cps_init(false);
+  if (res)
+    ble_printf("Evaluator initialized.\n\r");
+  else {
+    ble_printf("Error initializing evaluator.\n\r");
+  }
 
-	usb_printf("Allocating input/output buffers\n\r");
-	size_t len = 1024;
-	char *str = malloc(1024);
-	char *outbuf = malloc(4096);
-	int res = 0;
+  if (extensions_add("set-bat-level", bas_set_level)) {
+    ble_printf("set-bat-level extension added.\n\r");
+  } else {
+    ble_printf("set-bat-level extension failed!\n\r");
+  }
 
-	heap_state_t heap_state;
+  if (extensions_add("hello-world", hello_world)) {
+    ble_printf("hello-world extension added.\n\r");
+  } else {
+    ble_printf("hello-world extension failed!\n\r");
+  }
+	
+  VALUE prelude = prelude_load();
+  eval_cps_program(prelude);
 
-	res = symrepr_init();
-	if (res)
-		usb_printf("Symrepr initialized.\n\r");
-	else {
-		usb_printf("Error initializing symrepr!\n\r");
-		return;
-	}
-	int heap_size = 2048;
-	res = heap_init(heap_size);
-	if (res)
-		usb_printf("Heap initialized. Free cons cells: %u\n\r", heap_num_free());
-	else {
-		usb_printf("Error initializing heap!\n\r");
-		return;
-	}
+  ble_printf("Lisp REPL started (BLE_TOOL_NRF52_FW)!\n\r");
+	
+  while (1) {
+    k_sleep(100);
+    ble_printf("# ");
+    memset(str,0,len);
+    memset(outbuf,0, 1024);
+    ble_inputline(str, len);
+    ble_printf("\n\r");
 
-	res = eval_cps_init(false);
-	if (res)
-		usb_printf("Evaluator initialized.\n\r");
-	else {
-		usb_printf("Error initializing evaluator.\n\r");
-	}
+    if (strncmp(str, ":info", 5) == 0) {
+      ble_printf("##(BLE_TOOL_NRF52_FW)#######################################\n\r");
+      ble_printf("Used cons cells: %lu \n\r", heap_size - heap_num_free());
+      ble_printf("ENV: "); simple_snprint(outbuf,4095, eval_cps_get_env()); ble_printf("%s \n\r", outbuf);
+      heap_get_state(&heap_state);
+      ble_printf("GC counter: %lu\n\r", heap_state.gc_num);
+      ble_printf("Recovered: %lu\n\r", heap_state.gc_recovered);
+      ble_printf("Marked: %lu\n\r", heap_state.gc_marked);
+      ble_printf("Free cons cells: %lu\n\r", heap_num_free());
+      ble_printf("############################################################\n\r");
+      memset(outbuf,0, 4096);
+    } else if (strncmp(str, ":quit", 5) == 0) {
+      break;
+    } else if (strncmp(str, ":notify", 7) == 0) {
+      bas_notify();
+    } else {
 
-	if (extensions_add("set-bat-level", bas_set_level)) {
-	  usb_printf("set-bat-level extension added.\n\r");
-	} else {
-	  usb_printf("set-bat-level extension failed!\n\r");
-	}
+      VALUE t;
+      t = tokpar_parse(str);
 
-	if (extensions_add("hello-world", hello_world)) {
-	  usb_printf("hello-world extension added.\n\r");
-	} else {
-	  usb_printf("hello-world extension failed!\n\r");
-	}
+      t = eval_cps_program(t);
 
+      if (dec_sym(t) == symrepr_eerror()) {
+	ble_printf("Error\n");
+      } else {
+	ble_printf("> "); simple_snprint(outbuf, 1023, t); ble_printf("%s \n\r", outbuf);
+      }
+    }
+  }
 
-	VALUE prelude = prelude_load();
-	eval_cps_program(prelude);
-
-	usb_printf("Lisp REPL started (BLE_TOOL_NRF52_FW)!\n\r");
-
-	while (1) {
-		k_sleep(100);
-		usb_printf("# ");
-		memset(str,0,len);
-		memset(outbuf,0, 1024);
-		inputline(str, len);
-		usb_printf("\n\r");
-
-		if (strncmp(str, ":info", 5) == 0) {
-			usb_printf("##(BLE_TOOL_NRF52_FW)#######################################\n\r");
-			usb_printf("Used cons cells: %lu \n\r", heap_size - heap_num_free());
-			usb_printf("ENV: "); simple_snprint(outbuf,4095, eval_cps_get_env()); usb_printf("%s \n\r", outbuf);
-			heap_get_state(&heap_state);
-			usb_printf("GC counter: %lu\n\r", heap_state.gc_num);
-			usb_printf("Recovered: %lu\n\r", heap_state.gc_recovered);
-			usb_printf("Marked: %lu\n\r", heap_state.gc_marked);
-			usb_printf("Free cons cells: %lu\n\r", heap_num_free());
-			usb_printf("############################################################\n\r");
-			memset(outbuf,0, 4096);
-		} else if (strncmp(str, ":quit", 5) == 0) {
-			break;
-		} else if (strncmp(str, ":notify", 7) == 0) {
-		  bas_notify();
-		} else {
-
-			VALUE t;
-			t = tokpar_parse(str);
-
-			t = eval_cps_program(t);
-
-			if (dec_sym(t) == symrepr_eerror()) {
-				usb_printf("Error\n");
-			} else {
-				usb_printf("> "); simple_snprint(outbuf, 1023, t); usb_printf("%s \n\r", outbuf);
-			}
-		}
-	}
-
-	symrepr_del();
-	heap_del();
+  symrepr_del();
+  heap_del();
 
 }

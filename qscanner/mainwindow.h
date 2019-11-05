@@ -92,6 +92,8 @@ private slots:
 
     void on_bleUartConnectPushButton_clicked();
 
+    void on_bleUartSendPushButton_clicked();
+
 private:
     Ui::MainWindow *ui;
 
@@ -101,6 +103,8 @@ private:
 
     QLowEnergyController *mBLEControl = nullptr;
     QLowEnergyService    *mBLEService = nullptr;
+
+    QLowEnergyService    *mBLEUartService = nullptr;
 
     QSerialPort *mNRF52SerialPort;
 

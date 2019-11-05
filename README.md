@@ -2,7 +2,7 @@
 # BLE_TOOL
 
  * BLE_TOOL: is in directory qscanner and is a QT program. Open the .pro file with qt-creator.
- * ble_tool_nrf52_fw: contains firmware for the NRF52 platform that amongst other things runs a "lisp" interpreter
+ * ble_tool_nrf52_fw: contains firmware for the NRF52 platform that runs a "lisp" interpreter and some BLE services.
 
 ## Getting started
 

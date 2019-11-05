@@ -12,6 +12,8 @@
    4. run make flash (if you have the luxurious nordic semicondocturs board with  built in programmer) otherwise use the flash_stlink.sh script.
    
 
+## Videos on the topic of this repository
+
 [background](https://youtu.be/drmXdoRu3AQ)
 
 [Implementing get_char and put_char on nrf52](https://youtu.be/auHo9wq7pX4)

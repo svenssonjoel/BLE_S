@@ -19,3 +19,5 @@
 [Implementing get_char and put_char on nrf52](https://youtu.be/auHo9wq7pX4)
 
 [lispBM porting effort](https://youtu.be/cXSavxC3th0)
+
+[A first attempt at get_char and put_char over BLEUart](https://youtu.be/WUHqMYLLUQ0)
